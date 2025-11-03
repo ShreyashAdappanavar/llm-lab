@@ -22,15 +22,10 @@ class RopeCausalSelfAttention(nn.Module):
         pos_idx = torch.arange(0, self.block_size).unsqueeze(1) # (block_size, 1)
         angles = pos_idx * freq_idx # (block_size, dk//2)
 
-        freqs_complex = torch.polar(torch.tensor(1.0), angles)
-        self.register_buffer("frequencies_complex", freqs_complex)
 
     def forward(self, x: torch.Tensor):
         B, T, C = x.size()
         q, k, v = self.c_attn(x).split(self.embd_size, dim=-1) # (B, T, embd_size)
-        q = q.view(B, T, self.n_heads, self.embd_size//self.n_heads).transpose(1, 2) # (B, H, T, embd_size//H)
-        k = k.view(B, T, self.n_heads, self.embd_size//self.n_heads).transpose(1, 2) # (B, H, T, embd_size//H)
-        v = v.view(B, T, self.n_heads, self.embd_size//self.n_heads).transpose(1, 2) # (B, H, T, embd_size//H)
-
-        q = q.view(B, self.n_heads, T, 2, self.embd_size//(self.n_heads * 2))
-        k = k.view(B, self.n_heads, T, 2, self.embd_size//(self.n_heads * 2))
+        q = q.view(B, T, self.n_heads, self.dk).transpose(1, 2) # (B, H, T, embd_size//H)
+        k = k.view(B, T, self.n_heads, self.dk).transpose(1, 2) # (B, H, T, embd_size//H)
+        v = v.view(B, T, self.n_heads, self.dk).transpose(1, 2) # (B, H, T, embd_size//H)
