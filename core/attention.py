@@ -40,4 +40,3 @@ class CausalSelfAttention(nn.Module):
 
         y = self.dropout(self.c_proj(y))
         return y
-    
