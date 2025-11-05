@@ -35,7 +35,7 @@ class CausalSelfAttentionWithKVCache(nn.Module):
         k = k.view(B, T, self.n_heads, self.dk).transpose(1, 2) # (B, H, T_new, dk)
         v = v.view(B, T, self.n_heads, self.dk).transpose(1, 2) # (B, H, T_new, dk)
 
-        if old_kv_cache:
+        if old_kv_cache is not None:
             """
             T_new = 1
             q : (B, H, 1, dk)
@@ -49,10 +49,10 @@ class CausalSelfAttentionWithKVCache(nn.Module):
             att = (q @ k.transpose(-1, -2)) / math.sqrt(self.dk) # (B, H, T_new, T_new)
             att = att + self.causal_mask[:, :, :T, :T] # type: ignore[attr-defined]
 
-        att = F.softmax(att, dim=-1) # (B, H, T_new, T_new)
-        att = self.dropout(att) # (B, H, T_new, T_new)
-        y = att @ v # (B, H, T_new, dk)
-        y = y.transpose(1, 2).contiguous().view(B, T, C) # (B, T_new, embd_size)
+        att = F.softmax(att, dim=-1) # (B, H, 1, T_total) if old_kv_cache and else: (B, H, T_new, T_new)
+        att = self.dropout(att) # (B, H, 1, T_total) if old_kv_cache and else: (B, H, T_new, T_new)
+        y = att @ v # (B, H, 1, dk) if old_kv_cache and else: (B, H, T_new, dk)
+        y = y.transpose(1, 2).contiguous().view(B, T, C) # (B, 1, embd_size) if old_kv_cache and else: (B, T_new, embd_size)
 
-        y = self.dropout(self.c_proj(y)) # (B, T_new, embd_size)
+        y = self.dropout(self.c_proj(y)) # (B, 1, embd_size) if old_kv_cache and else: (B, T_new, embd_size)
         return y, (k, v)
