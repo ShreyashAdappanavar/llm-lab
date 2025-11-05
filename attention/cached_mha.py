@@ -25,21 +25,23 @@ class CausalSelfAttentionWithKVCache(nn.Module):
     
     def forward(self, x: torch.Tensor, old_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None):
         B, T, C = x.size()
-        q, k, v = self.c_attn(x).split(self.embd_size, dim=-1)
-        q = q.view(B, T, self.n_heads, self.dk).transpose(1, 2)
-        k = k.view(B, T, self.n_heads, self.dk).transpose(1, 2)
-        v = v.view(B, T, self.n_heads, self.dk).transpose(1, 2)
+        q, k, v = self.c_attn(x).split(self.embd_size, dim=-1) # (B, T, embd_size)
+        q = q.view(B, T, self.n_heads, self.dk).transpose(1, 2) # (B, H, T, dk)
+        k = k.view(B, T, self.n_heads, self.dk).transpose(1, 2) # (B, H, T, dk)
+        v = v.view(B, T, self.n_heads, self.dk).transpose(1, 2) # (B, H, T, dk)
 
         if old_kv_cache:
-            pass
-        
-        else:
-            att = (q @ k.transpose(-1, -2)) / math.sqrt(self.dk)
-            att = att + self.causal_mask[:, :, :T, :T] # type: ignore[attr-defined]
-            att = F.softmax(att, dim=-1)
-            att = self.dropout(att)
-            y = att @ v
-            y = y.transpose(1, 2).contiguous().view(B, T, C)
+            old_k, old_v = old_kv_cache
+            k = torch.cat((old_k, k), dim=1)
+            v = torch.cat((old_v, v), dim=1)
 
-            y = self.dropout(self.c_proj(y))
+        else:
+            att = (q @ k.transpose(-1, -2)) / math.sqrt(self.dk) # (B, H, T, T)
+            att = att + self.causal_mask[:, :, :T, :T] # type: ignore[attr-defined]
+            att = F.softmax(att, dim=-1) # (B, H, T, T)
+            att = self.dropout(att) # (B, H, T, T)
+            y = att @ v # (B, H, T, dk)
+            y = y.transpose(1, 2).contiguous().view(B, T, C) # (B, T, embd_size)
+
+            y = self.dropout(self.c_proj(y)) # (B, T, embd_size)
             return y, (k, v)
