@@ -43,7 +43,7 @@ class CausalSelfAttentionWithKVCache(nn.Module):
             old_k, old_v = old_kv_cache # (B, H, T_old, dk)
             k = torch.cat((old_k, k), dim=2) # (B, H, T_total, dk)
             v = torch.cat((old_v, v), dim=2) # (B, H, T_total, dk)
-            att = (q @ k.transpose(-1, -2)) / math.sqrt(self.dk) # (B, H, 1, T_total)
+            att = (q @ k.transpose(-1, -2)) / math.sqrt(self.dk) # (B, H, T_new, T_total)
 
         else:
             att = (q @ k.transpose(-1, -2)) / math.sqrt(self.dk) # (B, H, T_new, T_new)

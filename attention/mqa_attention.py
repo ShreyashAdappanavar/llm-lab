@@ -28,4 +28,28 @@ class MQACausalSelfAttention(nn.Module):
         T_old   : The TOTAL sequence length upto the last generated token
         T_total : T_old + T_new
         """
-        B, T, C = x.size()
+        B, T, _ = x.size()
+        q = self.q_proj(x) # (B, T_new, embd_size)
+        q = q.view(B, T, self.n_heads, self.dk).transpose(1, 2) # (B, H, T_new, dk)
+
+        k, v = self.kv_proj(x).split(self.dk, dim=-1) 
+        k = k.unsqueeze(1) # (B, 1, T_new, dk)
+        v = v.unsqueeze(1) # (B, 1, T_new, dk) 
+
+        if old_kv_cache is not None:
+            k_old, v_old = old_kv_cache # (B, 1, T_old, dk)
+            k = torch.cat((k_old, k), dim=2) # (B, 1, T_total, dk)
+            v = torch.cat((v_old, v), dim=2) # (B, 1, T_total, dk)
+            attn = (q @ k.transpose(-1,-2)) / math.sqrt(self.dk) # (B, H, T_new, T_total)
+        
+        else:
+            attn = (q @ k.transpose(-1, -2)) / math.sqrt(self.dk) # (B, H, T_new, T_new)
+            attn = attn + self.causal_mask[:, :, :T, :T] # type: ignore[attr-defined]
+        
+        attn = F.softmax(attn, dim=-1) # (B, H, 1, T_total) if old_kv_cache and else: (B, H, T_new, T_new)
+        attn = self.dropout(attn) # (B, H, 1, T_total) if old_kv_cache and else: (B, H, T_new, T_new)
+        y = attn @ v # (B, H, 1, dk) if old_kv_cache and else: (B, H, T_new, dk)
+        y = y.transpose(1, 2).contiguous().view(B, T, self.embd_size) # (B, 1, embd_size) if old_kv_cache and else: (B, T_new, embd_size)
+
+        y = self.dropout(self.c_proj(y)) # (B, 1, embd_size) if old_kv_cache and else: (B, T_new, embd_size)
+        return y, (k, v)
