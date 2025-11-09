@@ -40,7 +40,7 @@ class MQACausalSelfAttention(nn.Module):
             k_old, v_old = old_kv_cache # (B, 1, T_old, dk)
             k = torch.cat((k_old, k), dim=2) # (B, 1, T_total, dk)
             v = torch.cat((v_old, v), dim=2) # (B, 1, T_total, dk)
-            attn = (q @ k.transpose(-1,-2)) / math.sqrt(self.dk) # (B, H, T_new, T_total)
+            attn = (q @ k.transpose(-1,-2)) / math.sqrt(self.dk) # (B, H, T_new, T_total)   
         
         else:
             attn = (q @ k.transpose(-1, -2)) / math.sqrt(self.dk) # (B, H, T_new, T_new)
