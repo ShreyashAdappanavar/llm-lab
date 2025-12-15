@@ -39,6 +39,7 @@ class GQACausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_groups, self.dk).transpose(1, 2) # (B, n_groups, T_new, dk)
         v = v.view(B, T, self.n_groups, self.dk).transpose(1, 2) # (B, n_groups, T_new, dk)
 
+        # WRONG?? SHOULDNT IT BE REPEAT_INTERLEAVE?
         k = k.repeat(1, self.n_heads//self.n_groups, 1, 1) # (B, H, T_new, dk)
         v = v.repeat(1, self.n_heads//self.n_groups, 1, 1) # (B, H, T_new, dk)
 
